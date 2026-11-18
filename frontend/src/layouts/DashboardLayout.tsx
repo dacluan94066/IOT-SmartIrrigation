@@ -14,7 +14,7 @@ import {
 import { useEffect, useState } from "react";
 import { useDashboard } from "../hooks/useDashboard";
 import { Badge, ErrorNotice } from "../components/ui";
-import { dateTime, duration } from "../utils/format";
+import { dateTime, duration, demoSeconds } from "../utils/format";
 const links = [
   { to: "/", name: "Tổng quan", icon: LayoutDashboard },
   { to: "/dieu-khien", name: "Điều khiển tưới", icon: SlidersHorizontal },
@@ -155,6 +155,7 @@ export function DashboardLayout({ onLogout }: { onLogout: () => void }) {
           </div>
         </header>
         <main id="main-content" className="main-content">
+          {d.state?.demoActive && <div className="demo-global-banner" role="note"><strong>SIMULATED · DEMO ĐANG HOẠT ĐỘNG</strong><span>{d.isCurrent ? `Còn tối đa ${demoSeconds(d.state,d.serverNow)} giây · dữ liệu đầu vào mô phỏng, bơm do ESP32 quyết định.` : "Bản ghi demo cuối; chưa xác minh trạng thái thiết bị hiện tại."}</span><NavLink to="/dieu-khien">Quản lý / thoát demo →</NavLink></div>}
           {d.current.error && (
             <ErrorNotice
               message={`${d.current.error.message} Các giá trị còn hiển thị là bản ghi cuối, không phải dữ liệu mới.`}

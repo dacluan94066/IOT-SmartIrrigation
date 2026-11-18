@@ -372,6 +372,7 @@ void testParser() {
 
 // Kịch bản GĐ3 dùng cùng controller, không cần Arduino/FreeRTOS trên PC.
 #include "phase3.h"
+#include "web_demo.h"
 
 int main(int argc, char **argv) {
   testPump();
@@ -382,6 +383,7 @@ int main(int argc, char **argv) {
   testIoBudget();
   testFinalPhase2();
   testPhase3();
+  testWebDemo();
   if (argc == 3) {
     std::ifstream file(argv[1]);
     check(file.good(), "Live API capture file opens");

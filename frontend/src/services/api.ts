@@ -127,7 +127,7 @@ export const api = {
       signal,
       true,
     ),
-  command: (session: Session, type: CommandType, key: string) =>
+  command: (session: Session, type: Exclude<CommandType, "DEMO_SET" | "DEMO_STOP">, key: string) =>
     request("dashboard/commands", commandSchema, {
       method: "POST",
       headers: { "X-CSRF-Token": session.csrfToken, "Idempotency-Key": key },
@@ -136,5 +136,11 @@ export const api = {
         type,
         ttlSeconds: 15,
       }),
+    }),
+  demo: (session: Session, values: { soilMoisturePercent: number; rainProbabilityPercent: number } | null, key: string) =>
+    request("dashboard/commands", commandSchema, {
+      method: "POST",
+      headers: { "X-CSRF-Token": session.csrfToken, "Idempotency-Key": key },
+      body: JSON.stringify({ deviceId: session.deviceId, type: values ? "DEMO_SET" : "DEMO_STOP", ttlSeconds: values ? 60 : 15, ...(values || {}) }),
     }),
 };

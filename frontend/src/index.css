@@ -1,4 +1,31 @@
 @import "tailwindcss";
+/* Demo là một khu riêng có nhãn/ACK, không trộn với trạng thái bơm thật. */
+.demo-panel { padding: 26px; margin-bottom: 26px; border-color: #dce7ef; }
+.demo-panel-active { border-color: #d5ae51; }
+.demo-heading { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+.demo-title { flex: 1; min-width: 190px; }
+.demo-title h2 { margin: 5px 0; font-size: 20px; }
+.demo-title p:last-child, .demo-help { color: #67796f; font-size: 12px; line-height: 1.7; }
+.demo-live { display: grid; gap: 6px; padding: 16px; margin-top: 20px; border-radius: 10px; background: #fff6db; color: #694c0d; font-size: 12px; }
+.demo-sliders { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 28px; margin: 26px 0; }
+.demo-sliders label { display: grid; gap: 5px; min-width: 0; }
+.demo-sliders label > span { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.demo-sliders output { margin-left: auto; color: #0b7053; font-size: 21px; font-weight: 700; }
+.demo-sliders input { width: 100%; min-height: 44px; accent-color: #0b7053; cursor: pointer; }
+.demo-sliders small { color: #67796f; }
+.demo-presets { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
+.demo-preset { display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 8px; padding: 18px; border: 1px solid #dfe8e3; border-radius: 12px; background: #f8fbfa; color: #244d3d; min-width: 0; min-height: 155px; transition: border-color .15s, background .15s; }
+.demo-preset:not(:disabled):hover { border-color: #0b7053; background: #edf7f2; }
+.demo-preset span { font-size: 12px; }
+.demo-preset small { color: #67796f; line-height: 1.6; }
+.demo-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 22px 0 12px; }
+.demo-actions .button { min-height: 44px; }
+.demo-actions > span { display: inline-flex; gap: 7px; align-items: center; font-size: 12px; color: #67796f; }
+.demo-feedback { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding-top: 16px; margin-top: 15px; border-top: 1px solid #e7ece9; font-size: 12px; }
+.demo-global-banner { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 15px 20px; margin-bottom: 24px; border: 1px solid #dfc278; border-radius: 12px; background: #fff6db; color: #694c0d; font-size: 12px; }
+.demo-global-banner a { font-weight: 700; text-decoration: underline; margin-left: auto; }
+@media (max-width: 1100px) { .demo-presets { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 600px) { .demo-panel { padding: 18px; } .demo-sliders { grid-template-columns: 1fr; gap: 18px; } .demo-presets { grid-template-columns: 1fr; } .demo-preset { min-height: 125px; } .demo-actions .button { width: 100%; } }
 @theme {
   --font-sans:
     "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;

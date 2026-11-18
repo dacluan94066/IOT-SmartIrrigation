@@ -40,8 +40,11 @@ bool BackendService::healthy(uint32_t now) const {
 }
 
 void BackendService::publish(float soil, const WeatherData &w, WeatherState state,
-                             const PumpController &pump, const char *mode, uint32_t now) {
-  if (!worker_ || now-lastPublishAt_ < BackendConfig::TELEMETRY_INTERVAL_MS) return;
+                             const PumpController &pump, const char *mode, uint32_t now,
+                             float rawSoil, const DemoSession &demo, bool demoEnded) {
+  const bool changed = pump.isOn()!=lastPublishedPump_ || demo.active()!=lastPublishedDemo_;
+  if (!worker_ || (!forcePublish_ && !changed && now-lastPublishAt_ < BackendConfig::TELEMETRY_INTERVAL_MS)) return;
+  forcePublish_ = false; lastPublishedPump_ = pump.isOn(); lastPublishedDemo_ = demo.active();
   lastPublishAt_ = now; JsonDocument d;
   d["deviceId"] = BackendLocal::DEVICE_ID; d["bootId"] = bootId_; d["sequence"] = ++sequence_;
   d["soilMoisturePercent"] = soil;
@@ -51,11 +54,16 @@ void BackendService::publish(float soil, const WeatherData &w, WeatherState stat
     d["rainProbabilityPercent"] = w.maxRainProbabilityPercent;
     if (w.hasPrecipitation) d["precipitationMm"] = w.totalPrecipitationMm;
   }
-  d["weatherSource"] = Config::DEMO_WEATHER_MODE ? "SIMULATED" : "REAL";
+  d["weatherSource"] = w.simulated || Config::DEMO_WEATHER_MODE ? "SIMULATED" : "REAL";
+  d["rawSoilMoisturePercent"] = rawSoil;
+  d["soilSource"] = demo.active() ? "SIMULATED" : "REAL";
+  d["demoSupported"] = Config::REMOTE_DEMO_ENABLED; d["demoActive"] = demo.active();
+  if (demo.active()) d["demoCommandId"] = demo.id(); else d["demoCommandId"] = nullptr;
+  d["demoRemainingMs"] = demo.remaining(now);
   d["weatherStatus"] = weatherStateName(state);
   d["pumpState"] = pump.isOn() ? "BAT" : "TAT";
   d["decision"] = pump.decision() == IrrigationDecision::Watering ? "TUOI" : pump.decision() == IrrigationDecision::Postponed ? "TAM_HOAN" : "KHONG_TUOI";
-  d["reason"] = pump.reasonText(); d["mode"] = mode; d["uptimeMs"] = now;
+  d["reason"] = demoEnded ? "DEMO_ENDED: da dung chu ky demo; tro ve du lieu that va giu cooldown" : pump.reasonText(); d["mode"] = mode; d["uptimeMs"] = now;
   epochJson(d,"deviceTimestamp",time(nullptr));
   epochJson(d,"weatherUpdatedAt",w.updatedAtEpoch);
   if (measureJson(d) >= sizeof(telemetry_)) { Serial.println("[Backend] Telemetry qua lon; bo snapshot"); return; }
@@ -115,10 +123,17 @@ void BackendService::update(bool connected, uint32_t session, uint32_t now) {
           const uint32_t ttl = c["remainingTtlMs"].as<uint32_t>();
           // Trừ cả round-trip kể từ lúc enqueue; kết quả trễ không kéo dài lease.
           const uint32_t elapsed = now-result.queuedAt;
-          if (ttl > elapsed && ttl <= BackendConfig::MAX_COMMAND_TTL_MS &&
-              (!strcmp(type,"AUTO") || !strcmp(type,"MANUAL_ON") || !strcmp(type,"MANUAL_OFF"))) {
+          const bool demoSet = !strcmp(type,"DEMO_SET"), demoStop = !strcmp(type,"DEMO_STOP");
+          const bool control = !strcmp(type,"AUTO") || !strcmp(type,"MANUAL_ON") || !strcmp(type,"MANUAL_OFF");
+          const bool demoValues = !demoSet || (c["soilMoisturePercent"].is<float>() && c["rainProbabilityPercent"].is<float>() &&
+              isfinite(c["soilMoisturePercent"].as<float>()) && isfinite(c["rainProbabilityPercent"].as<float>()) &&
+              c["soilMoisturePercent"].as<float>()>=0 && c["soilMoisturePercent"].as<float>()<=100 &&
+              c["rainProbabilityPercent"].as<float>()>=0 && c["rainProbabilityPercent"].as<float>()<=100);
+          if (ttl > elapsed && ttl <= BackendConfig::MAX_COMMAND_TTL_MS && (control || demoSet || demoStop) && demoValues) {
             command_.id = c["id"]; command_.remainingMs = ttl-elapsed;
             command_.mode = !strcmp(type,"MANUAL_OFF") ? PumpMode::ManualOff : !strcmp(type,"MANUAL_ON") ? PumpMode::ManualOn : PumpMode::Auto;
+            command_.kind = demoSet ? BackendCommand::Kind::DemoSet : demoStop ? BackendCommand::Kind::DemoStop : BackendCommand::Kind::Control;
+            if (demoSet) { command_.soilPercent=c["soilMoisturePercent"]; command_.rainPercent=c["rainProbabilityPercent"]; }
             commandReady_ = true;
           }
         }
@@ -140,6 +155,7 @@ bool BackendService::takeLease(uint32_t &id, uint32_t &remainingMs) {
   id = leaseId_; remainingMs = leaseRemainingMs_; leaseReady_ = false; return true;
 }
 void BackendService::acknowledge(uint32_t id, bool executed, const char *reason) {
+  forcePublish_ = true;
   JsonDocument d; d["deviceId"] = BackendLocal::DEVICE_ID; d["bootId"] = bootId_;
   d["status"] = executed ? "EXECUTED" : "REJECTED"; d["reason"] = reason;
   serializeJson(d,ackBody_,sizeof(ackBody_)); ackId_ = id;

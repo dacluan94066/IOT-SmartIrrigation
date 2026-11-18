@@ -2,13 +2,17 @@
 
 Web Dashboard React/TypeScript/Vite/Tailwind4 trong [frontend/](frontend/README.md): tổng quan, điều khiển có ACK, lịch sử/biểu đồ, trạng thái hệ thống. Dùng session phía Server, không đưa API token vào React. Build Frontend rồi chạy Backend để demo cùng origin http://127.0.0.1:3001; môi trường dev tại http://127.0.0.1:5173. Phần ESP32 và sơ đồ dây không thay đổi trong GĐ4.
 
+**Demo trên Web (19/11/2026):** trang Điều khiển tưới có bốn kịch bản và hai thanh kéo đất/xác suất mưa. Đầu vào SIMULATED được gửi đến ESP32 chạy AUTO thật, giữ bảo vệ 40%/70%, mưa 60%, bơm 10 giây và nghỉ 5 giây. Mỗi lần áp dụng tối đa 60 giây, có ACK và nút trở về dữ liệu thật. Xem [cách dùng](frontend/README.md#demo-đầu-vào-từ-web--chỉ-dùng-với-wokwi) và [báo cáo kiểm thử Web → Wokwi](reports/web-demo/REPORT.md). Chỉ dùng với mô phỏng Wokwi, `DEMO_WEATHER_MODE=false`.
+
+Bảo trì CA ngày 19/11/2026: firmware dùng **bundle ISRG Root X1 + X2** để xác thực cả chuỗi YR/RSA và YE/ECDSA của Open-Meteo. Không tắt TLS/hostname/time validation. Sau khi cập nhật phải Build rồi nạp lại mô phỏng, không chỉ reload Dashboard. Test CA độc lập: `node --test test/weather-certificates.test.mjs`; thêm biến môi trường `WEATHER_TLS_LIVE_TESTS=1` để kiểm tra HTTPS từ PC (không thay cho runtime Wokwi). [Kết quả sửa CA, Build và Wokwi REAL/VALID mới](reports/weather-ca-fix-2026-11-19/REPORT.md).
+
 Bản bảo trì sau GĐ4: [phục hồi lỗi socket TLS và log errno](test/results/tls-recovery/REPORT.md). Chỉ bổ sung retry5s/15s/60s có giới hạn cho lỗi mạng TLS/HTTP transport, không thay thuật toán tưới hoặc xác thực HTTPS. Các timeout TLS45s/worker90s vẫn giữ nguyên.
 
-Backend Node.js/Express/SQLite đã được bổ sung trong [backend/](backend/README.md). Đọc hướng dẫn này để tạo token local, chạy Server và Build firmware có telemetry/lệnh thủ công. Không có React Dashboard. Các phần Giai đoạn 2 bên dưới vẫn giữ để tham khảo thời tiết/TLS và kiểm thử trước đó.
+Backend Node.js/Express/SQLite trong [backend/](backend/README.md) lưu telemetry và lệnh/ACK cho React Dashboard. Đọc hướng dẫn để tạo cấu hình local, chạy Server và Build firmware. Các phần Giai đoạn 2 bên dưới vẫn giữ để tham khảo thời tiết/TLS và kiểm thử trước đó.
 
 ESP32 kết hợp độ ẩm đất giả lập với dự báo mưa Open-Meteo để tưới tự động. Giữ nguyên mạch Giai đoạn 1, hysteresis 40%/70%, giới hạn chạy 10 giây và nghỉ 5 giây. Bơm mặc định tắt khi khởi động.
 
-Phạm vi hiện tại: Arduino Framework, PlatformIO, Wokwi, Wi-Fi/HTTPS và Backend Express/SQLite Giai đoạn 3. Chưa triển khai React Dashboard, database cloud hoặc MQTT.
+Phạm vi hiện tại: Arduino Framework, PlatformIO, Wokwi, Wi-Fi/HTTPS, Backend Express/SQLite và React Dashboard có demo đầu vào. Chưa triển khai database cloud hoặc MQTT.
 
 Báo cáo kiểm thử cuối Giai đoạn 2 (22/10/2026): [Test 1 REAL và Test 2 SIMULATED — kết quả, log và cách tái chạy](test/results/phase2-final/REPORT.md). Phân biệt rõ kiểm thử native, API trên PC và runtime Wokwi; cấu hình cuối đã khôi phục về REAL.
 
@@ -34,7 +38,7 @@ Potentiometer mặc định khoảng 50% nên không khởi động tưới mớ
 | `include/TimeSync.h` | Điều kiện mở HTTPS: đã nhận callback SNTP và epoch UTC trong phạm vi hợp lệ |
 | `include/WeatherData.h` | Snapshot dữ liệu và phân loại VALID/UNKNOWN/STALE |
 | `include/WeatherParser.h`, `src/WeatherParser.cpp` | Kiểm tra JSON, đơn vị, timestamp, ba mốc giờ; tính max xác suất và tổng lượng mưa |
-| `include/WeatherCertificates.h` | CA công khai ISRG Root X2 cho HTTPS |
+| `include/WeatherCertificates.h` | Bundle CA công khai ISRG Root X1 + X2 cho HTTPS |
 | `include/WeatherService.h`, `src/WeatherService.cpp` | Scheduling, tác vụ HTTPS riêng, queue kết quả, demo |
 | `include/WeatherTransport.h`, `src/WeatherTransport.cpp` | Adapter HTTPClient: TCP riêng, TLS mbedTLS có xác thực và I/O có cancellation/idle guard |
 | `include/WeatherDnsResolver.h`, `src/WeatherDnsResolver.cpp` | DNS lwIP bất đồng bộ, context sống lâu và không tái sử dụng callback còn pending |
@@ -95,7 +99,7 @@ Với `forecast_hours=3`, Open-Meteo trả **ba mốc bắt đầu từ giờ hi
 
 `current` là điều kiện hiện tại từ mô hình Open-Meteo, không phải số đo cảm biến tại vườn. Nhiệt độ, RH và lượng mưa dùng để quan sát; quyết định tưới dùng độ ẩm đất và **max xác suất mưa**, không cộng xác suất.
 
-HTTPS sử dụng mbedTLS với ISRG Root X2, `MBEDTLS_SSL_VERIFY_REQUIRED`, hostname/SNI `api.open-meteo.com` và kiểm tra verify flags sau handshake; không tắt xác thực chứng chỉ. TCP kết nối tới IP đã phân giải, nhưng TLS vẫn xác thực **hostname**, không xác thực tên bằng địa chỉ IP. SNTP chạy nền sau khi Wi-Fi kết nối. Nếu chưa đồng bộ giờ hoặc TLS lỗi, dữ liệu giữ `UNKNOWN` và bơm bị khóa. Chuỗi CA của nhà cung cấp có thể thay đổi; khi đó cần cập nhật `WeatherCertificates.h`, không thay bằng HTTP hay bỏ xác thực.
+HTTPS sử dụng mbedTLS với bundle ISRG Root X1 + X2, `MBEDTLS_SSL_VERIFY_REQUIRED`, hostname/SNI `api.open-meteo.com` và kiểm tra verify flags sau handshake; không tắt xác thực chứng chỉ. TCP kết nối tới IP đã phân giải, nhưng TLS vẫn xác thực **hostname**, không xác thực tên bằng địa chỉ IP. SNTP chạy nền sau khi Wi-Fi kết nối. Nếu chưa đồng bộ giờ hoặc TLS lỗi, dữ liệu giữ `UNKNOWN` và bơm bị khóa. Chuỗi CA của nhà cung cấp có thể thay đổi; khi đó cần cập nhật `WeatherCertificates.h`, không thay bằng HTTP hay bỏ xác thực. Log `TLS_CA_READY trusted_roots=2` xác nhận mbedTLS nạp đủ hai CA; chỉ `TLS_END ... verify_flags=0 peer=yes` mới xác nhận handshake đã xác thực.
 
 ## Bản sửa lỗi chờ NTP khi Wi-Fi đã CONNECTED
 

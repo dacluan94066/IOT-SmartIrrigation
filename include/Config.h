@@ -60,6 +60,9 @@ constexpr int64_t MAX_VALID_UNIX_TIME = 4102444800LL;  // Trước 2100-01-01 UT
 constexpr long LOCAL_UTC_OFFSET_SECONDS = 7L * 3600L;
 
 constexpr bool DEMO_WEATHER_MODE = false;
+// Chỉ cho bản mô phỏng Wokwi: vẫn cần Backend REMOTE_DEMO_ENABLED=true và xác nhận Web.
+// Mỗi lần boot không có phiên demo; không bật cờ này cho bơm phần cứng thực.
+constexpr bool REMOTE_DEMO_ENABLED = true;
 constexpr uint8_t DEMO_INITIAL_RAIN_PROBABILITY = 20;  // Chỉ chọn 20 hoặc 85
 
 static_assert(SOIL_LOW_THRESHOLD < SOIL_HIGH_THRESHOLD, "Nguong hysteresis sai");

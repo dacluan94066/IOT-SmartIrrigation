@@ -19,11 +19,20 @@ export const telemetrySchema = z.object({
   mode: z.enum(["AUTO", "MANUAL_ON", "MANUAL_OFF"]),
   uptimeMs: z.number(),
   weatherUpdatedAt: z.string().nullable(),
+  rawSoilMoisturePercent: z.number().min(0).max(100).nullable().default(null),
+  soilSource: z.enum(["REAL", "SIMULATED"]).default("REAL"),
+  demoSupported: z.boolean().default(false),
+  demoActive: z.boolean().default(false),
+  demoCommandId: z.number().nullable().default(null),
+  demoRemainingMs: z.number().min(0).max(60000).default(0),
+  demoExpiresAt: z.string().nullable().default(null),
 });
 export const commandSchema = z.object({
   id: z.number(),
   deviceId: z.string(),
-  type: z.enum(["AUTO", "MANUAL_ON", "MANUAL_OFF"]),
+  type: z.enum(["AUTO", "MANUAL_ON", "MANUAL_OFF", "DEMO_SET", "DEMO_STOP"]),
+  soilMoisturePercent: z.number().min(0).max(100).optional(),
+  rainProbabilityPercent: z.number().min(0).max(100).optional(),
   createdAt: z.string(),
   expiresAt: z.string(),
   status: z.enum([
@@ -48,6 +57,7 @@ export const sessionSchema = z.discriminatedUnion("authenticated", [
     historyPollMs: z.number(),
     expiresAt: z.string(),
     serverTime: z.string(),
+    demoEnabled: z.boolean().default(false),
   }),
 ]);
 export const healthSchema = z.object({

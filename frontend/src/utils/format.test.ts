@@ -6,8 +6,9 @@ import {
   number,
   telemetryAge,
   vietnamInputToISO,
+  demoSeconds,
 } from "./format";
-import { telemetrySchema } from "../types/api";
+import { telemetrySchema, commandSchema } from "../types/api";
 const sample = telemetrySchema.parse({
   id: 1,
   deviceId: "esp32-01",
@@ -29,6 +30,19 @@ const sample = telemetrySchema.parse({
   weatherUpdatedAt: null,
 });
 describe("readings, freshness, history (unit fixtures only)", () => {
+  it("demo countdown uses the earlier server expiry/telemetry budget, never renews a stale lease", () => {
+    const start=Date.parse(sample.receivedAt);
+    const demo={...sample,demoActive:true,demoRemainingMs:60000,demoExpiresAt:new Date(start+15000).toISOString()};
+    expect(demoSeconds(demo,start+1000)).toBe(14);
+    expect(demoSeconds(demo,start+15000)).toBe(0);
+    expect(demoSeconds({...demo,demoActive:false},start)).toBe(0);
+    expect(demoSeconds(demo,start-6000)).toBe(0);
+  });
+  it("demo commands are explicit and old firmware defaults to no demo capability", () => {
+    expect(sample.demoActive).toBe(false);
+    expect(sample.demoSupported).toBe(false);
+    expect(commandSchema.safeParse({id:1,deviceId:'esp32-01',type:'DEMO_SET',createdAt:sample.receivedAt,expiresAt:sample.receivedAt,status:'PENDING',ackAt:null,ackReason:null,soilMoisturePercent:22,rainProbabilityPercent:85}).success).toBe(true);
+  });
   it("unavailable values are not fabricated zero", () => {
     expect(number(null)).toBe("—");
     expect(number(undefined)).toBe("—");

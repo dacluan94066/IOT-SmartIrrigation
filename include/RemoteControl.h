@@ -19,6 +19,17 @@ class RemoteControl {
     return CommandAcceptance::Accepted;
   }
   void finishManualOn() { if (mode_ == PumpMode::ManualOn) mode_ = PumpMode::Auto; }
+  CommandAcceptance receiveDemo(uint32_t id, bool stop, uint32_t remainingMs, uint32_t now) {
+    if (id <= lastId_) return CommandAcceptance::Duplicate;
+    lastId_ = id;
+    if (!remainingMs || remainingMs > 60000) return CommandAcceptance::Expired;
+    if (mode_ == PumpMode::ManualOff) {
+      // Thoát demo được phép, nhưng không được xóa/gia hạn lease OFF.
+      return stop ? CommandAcceptance::Accepted : CommandAcceptance::OffPriority;
+    }
+    mode_ = PumpMode::Auto; since_ = now; ttl_ = remainingMs;
+    return CommandAcceptance::Accepted;
+  }
   void confirmLease(uint32_t id, uint32_t remainingMs, uint32_t now) {
     if (mode_ == PumpMode::Auto) return;
     if (id != lastId_ || !remainingMs || now-since_ >= ttl_) { mode_ = PumpMode::Auto; return; }

@@ -34,6 +34,8 @@ export const commandLabel = {
   AUTO: "Chuyển tự động",
   MANUAL_ON: "Bật thủ công",
   MANUAL_OFF: "Tắt thủ công",
+  DEMO_SET: "Áp dụng kịch bản DEMO",
+  DEMO_STOP: "Thoát DEMO, dùng dữ liệu thật",
 };
 export const statusLabel: Record<Command["status"], string> = {
   PENDING: "Đang chờ",
@@ -46,6 +48,11 @@ export const statusLabel: Record<Command["status"], string> = {
 export function humanReason(v?: string | null) {
   if (!v) return "Đang chờ ESP32 xác nhận.";
   const s = v.toLowerCase();
+  if (s.startsWith("demo_applied")) return "ESP32 đã áp dụng đầu vào SIMULATED. Thuật toán AUTO vẫn quyết định bơm và giữ các bảo vệ.";
+  if (s.startsWith("demo_stopped")) return "Đã thoát demo và trở về dữ liệu thật; giữ cooldown trước chu kỳ mới.";
+  if (s.startsWith("demo_ended")) return "Đã kết thúc phiên demo và dừng chu kỳ mô phỏng. Trở về dữ liệu thật, giữ cooldown.";
+  if (s.startsWith("demo_not_supported")) return "Firmware chưa hỗ trợ demo từ Web. Cần Build và nạp lại ESP32.";
+  if (s.startsWith("demo_active")) return "Hãy thoát demo trước khi chuyển AUTO hoặc bật thủ công.";
   if (s.includes("da dat nguong 70"))
     return "Độ ẩm đất đã đạt ngưỡng an toàn 70%. Không thể bật máy bơm.";
   if (s.includes("du bao sap mua"))
@@ -95,6 +102,13 @@ export const duration = (ms: number) => {
       ? `${Math.floor(s / 60)} phút ${s % 60} giây`
       : `${s} giây`;
 };
+// Đếm theo hạn Server và tuổi telemetry; không coi bản ghi cũ là một lease mới.
+export function demoSeconds(value: Telemetry | null | undefined, serverNow: number) {
+  if (!value?.demoActive || !value.demoExpiresAt) return 0;
+  const age = telemetryAge(value, serverNow);
+  if (age === null) return 0;
+  return Math.max(0, Math.ceil(Math.min(value.demoRemainingMs - age, Date.parse(value.demoExpiresAt) - serverNow) / 1000));
+}
 export const vietnamInputToISO = (value: string) =>
   new Date(value + (value.length === 16 ? ":00" : "") + "+07:00").toISOString();
 export function chartRows(rows: Telemetry[], offlineMs: number) {

@@ -172,6 +172,12 @@ bool WeatherTransport::open(IPAddress address, const char *hostname, const char 
                               reinterpret_cast<const unsigned char *>(ca), strlen(ca) + 1);
   // Cả kết quả parse dương (PEM lỗi một phần) cũng không được chấp nhận.
   if (!finishTlsSetupStep(code)) { return false; }
+  unsigned int rootCount = 0;
+  for (const mbedtls_x509_crt *root = &tls_->ca; root; root = root->next) {
+    if (root->raw.p) { ++rootCount; }
+  }
+  snprintf(detail, sizeof(detail), "trusted_roots=%u; certificate/hostname/time verification required", rootCount);
+  trace("TLS_CA_READY", detail);
   mbedtls_ssl_conf_authmode(&tls_->config, MBEDTLS_SSL_VERIFY_REQUIRED);
   mbedtls_ssl_conf_ca_chain(&tls_->config, &tls_->ca, nullptr);
   mbedtls_ssl_conf_rng(&tls_->config, mbedtls_ctr_drbg_random, &tls_->random);

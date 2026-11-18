@@ -137,8 +137,7 @@ export default function Overview() {
               : "Chờ thời tiết hợp lệ"}
           </h2>
           <p>
-            Dự báo do ESP32 nhận từ Open-Meteo. Dashboard không gọi API thời
-            tiết riêng.
+            {s?.weatherSource === "SIMULATED" ? "Đầu vào thời tiết đang được mô phỏng. Đây không phải phản hồi Open-Meteo thật." : "Dự báo do ESP32 nhận từ Open-Meteo. Dashboard không gọi API thời tiết riêng."}
           </p>
           <div className="weather-summary-foot">
             <Badge
@@ -165,7 +164,7 @@ export default function Overview() {
             value={number(s?.soilMoisturePercent)}
             unit="%"
             icon={Droplets}
-            description="GPIO34 · cảm biến mô phỏng"
+            description={s?.soilSource === "SIMULATED" ? `SIMULATED · potentiometer đang đo ${number(s.rawSoilMoisturePercent)}%` : "GPIO34 · cảm biến mô phỏng"}
             tag={
               <Badge tone={s && s.soilMoisturePercent < 40 ? "amber" : "green"}>
                 {s

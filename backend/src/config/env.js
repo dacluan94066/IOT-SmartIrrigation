@@ -11,7 +11,8 @@ const schema = z.object({
   CORS_ORIGINS: z.string().default('http://localhost:5173'),
   DASHBOARD_PASSWORD_HASH: z.string().regex(/^scrypt\$[a-f0-9]{32}\$[a-f0-9]{128}$/).optional(),
   DASHBOARD_OFFLINE_MS: z.coerce.number().int().min(15000).max(120000).default(30000),
-  DASHBOARD_COOKIE_SECURE: z.enum(['true','false']).default('false')
+  DASHBOARD_COOKIE_SECURE: z.enum(['true','false']).default('false'),
+  REMOTE_DEMO_ENABLED: z.enum(['true','false']).default('false')
 });
 
 export function loadConfig(env = process.env) {
@@ -27,6 +28,6 @@ export function loadConfig(env = process.env) {
     deviceId: v.DEVICE_ID, deviceToken: v.DEVICE_API_TOKEN,
     adminToken: v.ADMIN_API_TOKEN, corsOrigins: origins,
     dashboardPasswordHash:v.DASHBOARD_PASSWORD_HASH,dashboardOfflineMs:v.DASHBOARD_OFFLINE_MS,
-    dashboardCookieSecure:v.DASHBOARD_COOKIE_SECURE==='true'
+    dashboardCookieSecure:v.DASHBOARD_COOKIE_SECURE==='true',remoteDemoEnabled:v.REMOTE_DEMO_ENABLED==='true'
   };
 }

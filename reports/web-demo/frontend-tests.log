@@ -1,0 +1,12 @@
+
+> smart-irrigation-dashboard@1.0.0 test
+> vitest run
+
+
+ RUN  v5.0.5 D:/DaiHocNam4/IOT/SmartIrrigation/frontend
+
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  01:27:36
+   Duration  919ms (import 81%, tests 10%, transform 6%, worker 3%)

@@ -14,6 +14,7 @@ import { api, ApiError } from "../services/api";
 import type { Command, CommandType } from "../types/api";
 import { Badge, PageHeading, ErrorNotice } from "../components/ui";
 import { PumpPanel } from "../components/PumpPanel";
+import { DemoPanel } from "../components/DemoPanel";
 import { CommandStatus, CommandTable } from "../components/CommandTable";
 import { commandLabel, dateTime, humanReason, number } from "../utils/format";
 export default function Control() {
@@ -47,8 +48,8 @@ export default function Control() {
       cancel.current?.focus();
     } else dialog.current?.close();
   }, [confirm]);
-  async function send(type: CommandType) {
-    if (busy.current || !d.isCurrent || uncertain || offLease || (type !== "MANUAL_OFF" && waiting)) return;
+  async function send(type: Exclude<CommandType, "DEMO_SET" | "DEMO_STOP">) {
+    if (busy.current || !d.isCurrent || uncertain || offLease || (type !== "MANUAL_OFF" && (waiting || d.state?.demoActive))) return;
     busy.current = true;
     setSending(true);
     setError("");
@@ -77,6 +78,7 @@ export default function Control() {
         title="Điều khiển tưới"
         description="Gửi yêu cầu, theo dõi xác nhận. ESP32 luôn là nguồn trạng thái cuối cùng."
       />
+      <DemoPanel />
       <div className="control-grid">
         <div>
           <section className="panel control-intro">
@@ -117,6 +119,7 @@ export default function Control() {
                   !d.isCurrent ||
                   sending ||
                   waiting ||
+                  Boolean(d.state?.demoActive) ||
                   Boolean(offLease) ||
                   uncertain
                 }
@@ -142,6 +145,7 @@ export default function Control() {
                   !d.isCurrent ||
                   sending ||
                   waiting ||
+                  Boolean(d.state?.demoActive) ||
                   Boolean(offLease) ||
                   uncertain
                 }

@@ -6,11 +6,15 @@ const view = r => r ? ({
   soilMoisturePercent: r.soil_moisture_percent, temperatureC: r.temperature_c,
   rainProbabilityPercent: r.rain_probability_percent, precipitationMm: r.precipitation_mm,
   weatherSource: r.weather_source, weatherStatus: r.weather_status, pumpState: r.pump_state,
-  decision: r.decision, reason: r.reason, mode: r.mode, uptimeMs: r.uptime_ms, weatherUpdatedAt: r.weather_updated_at
+  decision: r.decision, reason: r.reason, mode: r.mode, uptimeMs: r.uptime_ms, weatherUpdatedAt: r.weather_updated_at,
+  rawSoilMoisturePercent:r.raw_soil_moisture_percent,soilSource:r.soil_source,
+  demoSupported:Boolean(r.demo_supported),demoActive:Boolean(r.demo_active),demoCommandId:r.demo_command_id,
+  demoRemainingMs:r.demo_remaining_ms,demoExpiresAt:r.demo_expires_at
 }) : null;
-const commandView = r => r ? ({ id: r.id, deviceId: r.device_id, type: r.type, createdAt: r.created_at, expiresAt: r.expires_at, status: r.status, ackAt: r.ack_at, ackReason: r.ack_reason }) : null;
+const commandView = r => r ? ({ id: r.id, deviceId: r.device_id, type: r.type, createdAt: r.created_at, expiresAt: r.expires_at, status: r.status, ackAt: r.ack_at, ackReason: r.ack_reason,
+  ...(r.type==='DEMO_SET'?{soilMoisturePercent:r.demo_soil_percent,rainProbabilityPercent:r.demo_rain_percent}:{}) }) : null;
 
-export function createService(db, deviceId, clock = () => Date.now()) {
+export function createService(db, deviceId, clock = () => Date.now(), options = {}) {
   const checkDevice = id => { if (id !== deviceId) throw new ApiError(403, 'DEVICE_FORBIDDEN', 'Token/config does not authorize this device'); };
   const expire = now => db.prepare("UPDATE commands SET status='EXPIRED' WHERE expires_at<=? AND status IN ('PENDING','DELIVERED')").run(now);
   return {
@@ -18,8 +22,19 @@ export function createService(db, deviceId, clock = () => Date.now()) {
     telemetry(p) {
       checkDevice(p.deviceId);
       const now = new Date(clock()).toISOString();
+      let demoExpiresAt = null;
+      if (p.demoActive) {
+        const demo = db.prepare("SELECT expires_at FROM commands WHERE id=? AND device_id=? AND type='DEMO_SET' AND delivered_boot_id=?").get(p.demoCommandId,p.deviceId,p.bootId);
+        if (!demo) throw new ApiError(400,'DEMO_COMMAND_UNKNOWN','Demo telemetry must refer to a command delivered to this boot');
+        demoExpiresAt = demo.expires_at;
+      }
       const result = db.prepare(`INSERT INTO telemetry (device_id,boot_id,sequence,received_at,device_timestamp,soil_moisture_percent,temperature_c,rain_probability_percent,precipitation_mm,weather_source,weather_status,pump_state,decision,reason,mode,uptime_ms,weather_updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(device_id,boot_id,sequence) DO NOTHING`).run(p.deviceId,p.bootId,p.sequence,now,p.deviceTimestamp,p.soilMoisturePercent,p.temperatureC,p.rainProbabilityPercent,p.precipitationMm,p.weatherSource,p.weatherStatus,p.pumpState,p.decision,p.reason,p.mode,p.uptimeMs,p.weatherUpdatedAt);
       const record = db.prepare('SELECT * FROM telemetry WHERE device_id=? AND boot_id=? AND sequence=?').get(p.deviceId,p.bootId,p.sequence);
+      if (result.changes) {
+        db.prepare('UPDATE telemetry SET raw_soil_moisture_percent=?,soil_source=?,demo_supported=?,demo_active=?,demo_command_id=?,demo_remaining_ms=?,demo_expires_at=? WHERE id=?').run(
+          p.rawSoilMoisturePercent ?? null,p.soilSource || 'REAL',Number(p.demoSupported || false),Number(p.demoActive || false),p.demoCommandId ?? null,p.demoRemainingMs || 0,demoExpiresAt,record.id);
+        Object.assign(record,db.prepare('SELECT * FROM telemetry WHERE id=?').get(record.id));
+      }
       // Một retry chỉ trả bản ghi cũ, không ghi đè lịch sử hoặc server timestamp.
       return { record: view(record), duplicate: result.changes === 0 };
     },
@@ -35,11 +50,19 @@ export function createService(db, deviceId, clock = () => Date.now()) {
       const now = new Date(clock()).toISOString(); expire(now);
       // OFF đang hiệu lực chặn cả AUTO/ON mới; không thể bị mất vì request đồng thời.
       const off = db.prepare("SELECT id FROM commands WHERE device_id=? AND type='MANUAL_OFF' AND expires_at>? AND status IN ('PENDING','DELIVERED','EXECUTED') LIMIT 1").get(p.deviceId,now);
-      if (off && p.type !== 'MANUAL_OFF') throw new ApiError(409,'MANUAL_OFF_PRIORITY','Wait for MANUAL_OFF lease to expire');
+      if (off && !['MANUAL_OFF','DEMO_STOP'].includes(p.type)) throw new ApiError(409,'MANUAL_OFF_PRIORITY','Wait for MANUAL_OFF lease to expire');
+      if (p.type === 'DEMO_SET') {
+        if (!options.demoEnabled) throw new ApiError(403,'DEMO_DISABLED','Chế độ demo chưa được bật ở Backend');
+        const state = db.prepare('SELECT * FROM telemetry WHERE device_id=? ORDER BY id DESC LIMIT 1').get(p.deviceId);
+        if (!state || clock()-Date.parse(state.received_at) >= (options.offlineAfterMs || 30000)) throw new ApiError(409,'DEVICE_OFFLINE','Thiết bị offline; không thể bắt đầu demo');
+        if (!state.demo_supported) throw new ApiError(409,'DEMO_NOT_SUPPORTED','Cần Build firmware có hỗ trợ demo từ Web');
+      }
+      const latest = db.prepare('SELECT * FROM commands WHERE device_id=? ORDER BY id DESC LIMIT 1').get(p.deviceId);
+      if (['AUTO','MANUAL_ON'].includes(p.type) && latest?.type==='DEMO_SET' && latest.expires_at>now && ['PENDING','DELIVERED','EXECUTED'].includes(latest.status)) throw new ApiError(409,'DEMO_ACTIVE','Hãy thoát demo trước khi chuyển AUTO hoặc bật thủ công');
       db.exec('BEGIN IMMEDIATE');
       try {
-        db.prepare("UPDATE commands SET status='SUPERSEDED' WHERE device_id=? AND status IN ('PENDING','DELIVERED')").run(p.deviceId);
-        const r = db.prepare("INSERT INTO commands(device_id,type,created_at,expires_at,status) VALUES(?,?,?,?,'PENDING')").run(p.deviceId,p.type,now,new Date(clock()+p.ttlSeconds*1000).toISOString());
+        db.prepare("UPDATE commands SET status='SUPERSEDED' WHERE device_id=? AND status IN ('PENDING','DELIVERED') AND (? <> 'DEMO_STOP' OR type <> 'MANUAL_OFF')").run(p.deviceId,p.type);
+        const r = db.prepare("INSERT INTO commands(device_id,type,created_at,expires_at,status,demo_soil_percent,demo_rain_percent) VALUES(?,?,?,?,'PENDING',?,?)").run(p.deviceId,p.type,now,new Date(clock()+p.ttlSeconds*1000).toISOString(),p.type==='DEMO_SET'?p.soilMoisturePercent:null,p.type==='DEMO_SET'?p.rainProbabilityPercent:null);
         const row = db.prepare('SELECT * FROM commands WHERE id=?').get(r.lastInsertRowid);
         db.exec('COMMIT'); return commandView(row);
       } catch (e) { db.exec('ROLLBACK'); throw e; }

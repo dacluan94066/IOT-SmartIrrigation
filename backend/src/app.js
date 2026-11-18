@@ -12,7 +12,7 @@ export function createApp(config,db,clock) {
   const allowedOrigins=new Set([...config.corsOrigins,`http://127.0.0.1:${config.port||3001}`,`http://localhost:${config.port||3001}`]);
   app.use(cors({ origin(origin,cb) { cb(origin && !allowedOrigins.has(origin) ? new ApiError(403,'ORIGIN_FORBIDDEN','Origin not allowed') : null,Boolean(origin)); },methods:['GET','POST'],allowedHeaders:['Content-Type','Authorization'] }));
   app.use(express.json({limit:'8kb',strict:true}));
-  app.use('/api/v1',routes(controllers(createService(db,config.deviceId,clock),db),config,db,clock));
+  app.use('/api/v1',routes(controllers(createService(db,config.deviceId,clock,{demoEnabled:config.remoteDemoEnabled===true,offlineAfterMs:config.dashboardOfflineMs}),db),config,db,clock));
   // Bản build local production cùng origin, cookie không cần trao token cho JS.
   const dist=fileURLToPath(new URL('../../frontend/dist/',import.meta.url));
   if(existsSync(path.join(dist,'index.html'))){

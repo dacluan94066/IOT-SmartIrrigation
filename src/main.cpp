@@ -12,6 +12,7 @@ WeatherService weatherService;
 PumpController pumpController;
 BackendService backendService;
 RemoteControl remoteControl;
+DemoSession demoSession;
 uint32_t lastSerialReportAtMs = 0;
 bool previousPumpState = false;
 PumpReason previousReason = PumpReason::Startup;
@@ -77,16 +78,17 @@ void printLocalTime(int64_t epoch) {
 }
 
 void printSystemStatus(uint16_t adcValue, float soilPercent, uint32_t nowMs) {
-  const WeatherState state = weatherService.state(nowMs);
-  const WeatherData &weather = weatherService.data();
+  const WeatherState state = demoSession.active() ? WeatherState::Valid : weatherService.state(nowMs);
+  const WeatherData weather = demoSession.active() ? demoSession.weather() : weatherService.data();
   Serial.println("\n---------- SMART IRRIGATION - GIAI DOAN 3 ----------");
   Serial.printf("BACKEND: %s | MODE: %s\n",backendService.healthy(nowMs)?"CONNECTED":"OFFLINE (AUTO doc lap)",remoteControl.modeName());
   Serial.printf("Wi-Fi: %s | ADC: %u | DO AM DAT: %.1f%%\n",
                 wifiService.connected() ? "CONNECTED" : "DISCONNECTED",
                 static_cast<unsigned int>(adcValue), soilPercent);
   Serial.printf("NGUON WEATHER: %s | TRANG THAI WEATHER: %s\n",
-                Config::DEMO_WEATHER_MODE ? "SIMULATED" : "REAL / Open-Meteo",
+                weather.simulated || Config::DEMO_WEATHER_MODE ? "SIMULATED" : "REAL / Open-Meteo",
                 weatherStateName(state));
+  if (demoSession.active()) Serial.printf("[WEB DEMO] SIMULATED | soil=%.1f%% | raw=%.1f%% | remaining=%lu ms\n",soilPercent,convertAdcToMoisture(adcValue),static_cast<unsigned long>(demoSession.remaining(nowMs)));
   if (state == WeatherState::Valid) {
     if (weather.hasCurrentConditions) {
       Serial.printf("NHIET DO: %.1f C | DO AM KHONG KHI: %.1f%%\n",
@@ -150,32 +152,66 @@ void loop() {
   handleDemoCommands();
   weatherService.update(wifiService.connected(), wifiService.session(), millis());
   const uint16_t adc = readSoilAdc();
-  const float soilPercent = convertAdcToMoisture(adc);
+  const float rawSoilPercent = convertAdcToMoisture(adc);
   const uint32_t nowMs = millis();
   backendService.update(wifiService.connected(),wifiService.session(),nowMs);
   remoteControl.update(wifiService.connected() && backendService.healthy(nowMs),nowMs);
+  demoSession.update(wifiService.connected() && backendService.healthy(nowMs),nowMs);
   uint32_t leaseId = 0, leaseRemainingMs = 0;
-  if (backendService.takeLease(leaseId,leaseRemainingMs)) remoteControl.confirmLease(leaseId,leaseRemainingMs,nowMs);
+  const bool hasLease = backendService.takeLease(leaseId,leaseRemainingMs);
   BackendCommand command;
   const bool hasCommand = backendService.takeCommand(command);
   CommandAcceptance acceptance = CommandAcceptance::Expired;
-  if (hasCommand) acceptance = remoteControl.receive(command.id,command.mode,command.remainingMs,nowMs);
+  bool demoCommand = false;
+  const char *demoReason = nullptr;
+  bool blockedByDemo = false;
+  if (hasCommand) {
+    demoCommand = command.kind != BackendCommand::Kind::Control;
+    if (demoCommand) {
+      acceptance = remoteControl.receiveDemo(command.id,command.kind==BackendCommand::Kind::DemoStop,command.remainingMs,nowMs);
+      if (acceptance == CommandAcceptance::Accepted) {
+        if (command.kind == BackendCommand::Kind::DemoStop) {
+          demoSession.stop(); demoReason="DEMO_STOPPED: tro ve du lieu that";
+        } else if (Config::REMOTE_DEMO_ENABLED && demoSession.activate(command.id,command.soilPercent,command.rainPercent,command.remainingMs,nowMs,time(nullptr))) {
+          demoReason="DEMO_APPLIED: SIMULATED, AUTO; giu bao ve 70%, mua, 10s va cooldown";
+        } else { demoReason="DEMO_NOT_SUPPORTED"; }
+      }
+    } else {
+      blockedByDemo = demoSession.active() && command.mode != PumpMode::ManualOff;
+      acceptance = remoteControl.receive(command.id,blockedByDemo ? PumpMode::Auto : command.mode,command.remainingMs,nowMs);
+      if (acceptance==CommandAcceptance::Accepted && command.mode==PumpMode::ManualOff) demoSession.stop();
+    }
+  }
+  // Cùng một response có thể chứa lệnh demo mới và lease ID mới.
+  // Áp dụng lệnh trước, rồi kiểm tra lease: không hủy nhầm phiên khi chỉ đổi giá trị.
+  if (hasLease) {
+    remoteControl.confirmLease(leaseId,leaseRemainingMs,nowMs);
+    demoSession.confirmLease(leaseId,leaseRemainingMs,nowMs);
+  }
+  // Thoát/hết hạn/mất Backend: OFF ít nhất một vòng, ghi cooldown trước AUTO thật.
+  const bool demoEnded = demoSession.takeEnded();
+  if (demoEnded) Serial.println("[WEB DEMO] ENDED: tro ve du lieu that; dung chu ky demo va giu cooldown");
+  const float soilPercent = demoSession.active() ? demoSession.soil() : rawSoilPercent;
+  const WeatherData effectiveWeather = demoSession.active() ? demoSession.weather() : weatherService.data();
+  const WeatherState effectiveState = demoSession.active() ? WeatherState::Valid : weatherService.state(nowMs);
   pumpController.update(soilPercent, wifiService.connected(),
-                        weatherService.state(nowMs),
-                        weatherService.data().maxRainProbabilityPercent, nowMs,remoteControl.mode());
+                        effectiveState,effectiveWeather.maxRainProbabilityPercent,nowMs,
+                        demoEnded ? PumpMode::ManualOff : remoteControl.mode());
   applyPumpOutputs();
   if (hasCommand) {
-    const bool executed = acceptance == CommandAcceptance::Accepted &&
-                          (command.mode != PumpMode::ManualOn || pumpController.isOn());
+    const bool executed = acceptance == CommandAcceptance::Accepted && !blockedByDemo &&
+                          (demoCommand ? demoReason && strcmp(demoReason,"DEMO_NOT_SUPPORTED") &&
+                            (command.kind!=BackendCommand::Kind::DemoSet || (demoSession.active() && demoSession.id()==command.id))
+                           : command.mode != PumpMode::ManualOn || pumpController.isOn());
     const char *reason = acceptance == CommandAcceptance::Duplicate ? "DUPLICATE_NOT_REEXECUTED" :
                          acceptance == CommandAcceptance::OffPriority ? "MANUAL_OFF_PRIORITY" :
-                         acceptance == CommandAcceptance::Expired ? "COMMAND_EXPIRED" : pumpController.reasonText();
+                         acceptance == CommandAcceptance::Expired ? "COMMAND_EXPIRED" : blockedByDemo ? "DEMO_ACTIVE: thoat demo truoc" : demoCommand ? (demoReason ? demoReason : "DEMO_REJECTED") : pumpController.reasonText();
     backendService.acknowledge(command.id,executed,reason);
     Serial.printf("[Command ms=%lu] id=%lu status=%s mode=%s pump=%s reason=%s\n",static_cast<unsigned long>(nowMs),static_cast<unsigned long>(command.id),executed?"EXECUTED":"REJECTED",remoteControl.modeName(),pumpController.isOn()?"BAT":"TAT",reason);
   }
   // MANUAL_ON chỉ một chu kỳ: không tự bật lại vì lease/HTTP retry còn hiệu lực.
   if (remoteControl.mode() == PumpMode::ManualOn && !pumpController.isOn()) remoteControl.finishManualOn();
-  backendService.publish(soilPercent,weatherService.data(),weatherService.state(nowMs),pumpController,remoteControl.modeName(),nowMs);
+  backendService.publish(soilPercent,effectiveWeather,effectiveState,pumpController,remoteControl.modeName(),nowMs,rawSoilPercent,demoSession,demoEnded);
   if (weatherService.recoveryRequired() && !pumpController.isOn()) {
     // Không xóa ngang task TLS vì có thể làm rò RAM/khóa nội bộ.
     // UNKNOWN đã đi qua controller và GPIO đã OFF trước khi phục hồi toàn bộ ESP32.

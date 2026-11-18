@@ -38,6 +38,29 @@ Sau đó khởi động/restart Backend đã cập nhật. Backend phục vụ `
 
 `npm.cmd run preview` cũng dùng port5173, thay cho dev (không chạy đồng thời). Thay BACKEND_PROXY_TARGET trong env chỉ khi cần; đây là cấu hình Node/Vite, không phải secret. Không đổi sang hostname/LAN/public hoặc cấu hình firewall để demo.
 
+## Demo đầu vào từ Web — chỉ dùng với Wokwi
+
+Bản bổ sung ngày 19/11/2026 có **Demo kịch bản tưới** tại trang **Điều khiển tưới** (`/dieu-khien`). Lệnh đi qua Backend đến ESP32; firmware dùng đầu vào mô phỏng với chính controller AUTO, rồi gửi ACK và telemetry. Frontend không tự tính trạng thái bơm để giả lập thành công.
+
+Điều kiện: Backend local đặt `REMOTE_DEMO_ENABLED=true`; firmware mới có `Config::REMOTE_DEMO_ENABLED=true`, đã Build và chạy trên Wokwi. **Giữ `DEMO_WEATHER_MODE=false`** để dịch vụ Open-Meteo thật tiếp tục hoạt động riêng. `.env.example` mặc định tắt quyền demo; máy demo hiện tại đã bật cục bộ, không đưa token vào React.
+
+1. Giữ Backend và Wokwi chạy. Mở `http://127.0.0.1:3001/dieu-khien`, đăng nhập và nhấn **Ctrl+F5** nếu đang mở bundle cũ.
+2. Chờ ESP32 ONLINE, bấm **Bật chế độ demo**, đọc và xác nhận. Mặc định đất 22%, xác suất mưa 20%.
+3. Dùng bốn nút kịch bản hoặc kéo hai thanh rồi bấm **Áp dụng giá trị đã chọn**. Kéo thanh riêng lẻ chưa gửi lệnh. Mỗi lần áp dụng có hạn tối đa 60 giây; không tự gia hạn.
+4. Chờ ACK và telemetry ESP32. `EXECUTED` xác nhận đã áp dụng đầu vào, không đồng nghĩa bơm chắc chắn BẬT. Cooldown và các bảo vệ vẫn có thể giữ bơm TẮT.
+5. Bấm **Thoát demo → dữ liệu thật**, hoặc để hết hạn. ESP32 dừng chu kỳ demo, giữ cooldown rồi dùng potentiometer và thời tiết thật trong AUTO. Mất Backend cũng hủy phiên demo; sau đó AUTO thật vẫn có thể tưới nếu đầu vào thật đủ điều kiện.
+
+| Kịch bản | Đầu vào | Kết quả AUTO khi đủ điều kiện |
+|---|---|---|
+| Đất khô, ít mưa | Đất 22%, mưa 20% | Bật sau cooldown; tối đa 10 giây/chu kỳ, nghỉ 5 giây |
+| Đất đủ ẩm | Đất 50%, mưa 20% | Không bắt đầu chu kỳ mới; đang chạy vẫn giữ hysteresis |
+| Đất quá ẩm | Đất 80%, mưa 20% | Dừng/giữ tắt vì đạt ngưỡng 70% |
+| Sắp có mưa | Đất 22%, mưa 85% | Hoãn; bơm đang chạy sẽ dừng |
+
+Thanh mưa là **xác suất (%)**, không phải lượng mưa (mm). Demo không chế tạo nhiệt độ, độ ẩm không khí hoặc lượng mưa: các trường đó không có sẽ hiển thị `—`. Banner SIMULATED xuất hiện trên các trang; đất potentiometer gốc được giữ riêng, lịch sử demo được đánh dấu. Khi Backend mất kết nối, trạng thái cuối được cảnh báo và khóa gửi lệnh.
+
+MANUAL_OFF vẫn ưu tiên. AUTO/MANUAL_ON bị khóa khi phiên demo đang hoạt động; thoát demo trước khi dùng điều khiển thông thường. Không dùng tính năng này cho bơm ngoài thực tế. Kết quả kiểm thử Web → Wokwi: [báo cáo demo](../reports/web-demo/REPORT.md).
+
 ## Đăng nhập và bảo mật
 
 - Thêm API `/api/v1/dashboard/session` (GET/POST), `/dashboard/logout` (POST), cùng các bản session-protected `/dashboard/state`, `/dashboard/history`, `/dashboard/commands` (GET/POST) dưới `/api/v1`.

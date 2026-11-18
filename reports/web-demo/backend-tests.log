@@ -1,0 +1,60 @@
+
+> smart-irrigation-backend@1.0.0 test
+> node --test test/*.test.js
+
+▶ Phase3 REST API + SQLite integration (PC, not ESP32/Wokwi)
+  ✔ health succeeds without token and checks DB (144.2593ms)
+  ✔ auth required and roles separated (108.1248ms)
+  ✔ store telemetry with server receipt and nullable device timestamp (24.0168ms)
+  ✔ idempotent telemetry retry preserves original timestamp/body (10.5288ms)
+  ✔ SQLite file readable from independent reopened connection (9.8671ms)
+  ✔ latest state and bounded paginated history (28.1399ms)
+  ✔ reject invalid values, unknown fields, wrong device, contradictory pump (43.3593ms)
+  ✔ UNKNOWN nulls and SIMULATED labels retained (8.1702ms)
+  ✔ CORS allowlist, reject unsolicited origins (8.057ms)
+  ✔ malformed JSON and body size use JSON errors (9.3404ms)
+  ✔ create/claim command with finite TTL (14.5817ms)
+  ✔ unacked retry same boot uses same id, not fresh command (7.9487ms)
+  ✔ poll provides server lease and never extends expiresAt (9.082ms)
+  ✔ ACK wrong boot rejected, ACK idempotent and never redelivered (21.2117ms)
+  ✔ new boot never executes previously delivered command (19.2327ms)
+  ✔ MANUAL_OFF supersedes ON and wins over AUTO/ON until expiry (31.6959ms)
+  ✔ expired/rejected command audited and never reissued (23.7303ms)
+  ✔ command validation, nonexistent route return JSON (26.9916ms)
+✔ Phase3 REST API + SQLite integration (PC, not ESP32/Wokwi) (692.6429ms)
+✔ configuration fails closed and refuses public bind (4.1187ms)
+▶ Dashboard sessions, security, idempotency, time filters (HTTP + SQLite, not Wokwi)
+  ✔ anonymous session reveals no credentials, protected reads401 (162.7751ms)
+  ✔ same-origin production origin allowed, arbitrary origins rejected (15.4075ms)
+  ✔ bad password rejected (172.803ms)
+  ✔ login returns HttpOnly Strict cookie, no API tokens (85.4626ms)
+  ✔ session authenticated read but cannot call raw admin/device routes (32.3796ms)
+  ✔ writes require csrf and trusted origin (32.7014ms)
+  ✔ idempotent command submission has one DB row and rejects changed body (30.2879ms)
+  ✔ time filter is server-side with correct count and invalid bounds rejected (32.4855ms)
+  ✔ sessions survive app recreation using same SQLite (42.2953ms)
+  ✔ logout invalidates cookie server-side (26.1368ms)
+  ✔ expired session rejected (75.9207ms)
+  ✔ login throttled after five bad attempts (312.7003ms)
+✔ Dashboard sessions, security, idempotency, time filters (HTTP + SQLite, not Wokwi) (1171.8363ms)
+✔ SQLite v1 -> v2 preserves telemetry, command IDs, ACK, sessions and AUTOINCREMENT (isolated file) (145.3715ms)
+▶ Web demo API safety, lease, telemetry labels and ACK (HTTP + memory DB, NOT Wokwi)
+  ✔ anonymous demo command rejected; schema validation strict (163.7903ms)
+  ✔ offline or old firmware cannot start a demo (56.194ms)
+  ✔ demo ID/payload retained, retry idempotent, TTL finite (15.2445ms)
+  ✔ device poll and real ACK protocol carry demo values and server lease (17.8423ms)
+  ✔ SIMULATED and raw sensor stay separate in SQLite/state/history (26.0468ms)
+  ✔ normal AUTO/ON cannot silently override active demo (13.6219ms)
+  ✔ OFF wins; DEMO_STOP must not supersede pending OFF (42.6969ms)
+  ✔ pending demo expires and is never delivered late (18.4568ms)
+  ✔ demo delivered to prior boot is rejected, never replayed (24.3431ms)
+  ✔ Backend opt-in required even with a valid session (16.5656ms)
+✔ Web demo API safety, lease, telemetry labels and ACK (HTTP + memory DB, NOT Wokwi) (854.2068ms)
+ℹ tests 45
+ℹ suites 0
+ℹ pass 45
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2132.2214

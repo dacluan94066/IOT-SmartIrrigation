@@ -24,7 +24,7 @@ export function dashboardRoutes(config, db, c, clock = () => Date.now()) {
   const origin=(req,res,next)=>origins.has(req.headers.origin)?next():next(new ApiError(403,'ORIGIN_FORBIDDEN','Nguồn yêu cầu không hợp lệ'));
   const auth=(req,res,next)=>{ const session=findSession(req); if(!session)return next(new ApiError(401,'SESSION_REQUIRED','Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'));req.dashboardSession=session;next(); };
   const csrf=(req,res,next)=>equal(req.headers['x-csrf-token'],req.dashboardSession.csrf)?next():next(new ApiError(403,'CSRF_INVALID','Thiếu hoặc sai mã bảo vệ yêu cầu'));
-  const sessionView=s=>({authenticated:true,csrfToken:s.csrf,deviceId:config.deviceId,offlineAfterMs:config.dashboardOfflineMs||30000,statePollMs:3000,historyPollMs:30000,expiresAt:new Date(s.expires_at).toISOString(),serverTime:new Date(clock()).toISOString()});
+  const sessionView=s=>({authenticated:true,csrfToken:s.csrf,deviceId:config.deviceId,offlineAfterMs:config.dashboardOfflineMs||30000,statePollMs:3000,historyPollMs:30000,demoEnabled:config.remoteDemoEnabled===true,expiresAt:new Date(s.expires_at).toISOString(),serverTime:new Date(clock()).toISOString()});
   r.use((req,res,next)=>{res.set('Cache-Control','no-store');next();});
   r.get('/session',(req,res)=>{const s=findSession(req);ok(res,s?sessionView(s):{authenticated:false});});
   r.post('/session',origin,async(req,res)=>{

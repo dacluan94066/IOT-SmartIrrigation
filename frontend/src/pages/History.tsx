@@ -214,6 +214,7 @@ export default function History() {
                     </td>
                     <td className="numeric">
                       <strong>{number(r.soilMoisturePercent)}%</strong>
+                      {r.soilSource === "SIMULATED" && <span className="table-sub">DEMO · raw {number(r.rawSoilMoisturePercent)}%</span>}
                     </td>
                     <td>
                       {r.rainProbabilityPercent === null

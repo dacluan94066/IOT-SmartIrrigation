@@ -8,7 +8,7 @@ Các route mới: GET/POST `/api/v1/dashboard/session`, POST `/api/v1/dashboard/
 
 Sau khi Build `frontend/`, Backend có thể phục vụ Dashboard local tại http://127.0.0.1:3001. Hướng dẫn và giới hạn: [frontend/README.md](../frontend/README.md). Độ ẩm không khí vẫn chưa có trong telemetry hiện tại; không chế tạo dữ liệu và không sửa firmware ở GĐ4.
 
-Node.js 24.16.x + Express 5 + SQLite tích hợp `node:sqlite`. Không cần cài SQLite server/native addon. SQLite API đồng bộ phù hợp một thiết bị, lưu lượng thấp của đồ án; chưa phải kiến trúc tải lớn. Chưa có React, MQTT hoặc database cloud.
+Node.js 24.16.x + Express 5 + SQLite tích hợp `node:sqlite`. Không cần cài SQLite server/native addon. SQLite API đồng bộ phù hợp một thiết bị, lưu lượng thấp của đồ án; chưa phải kiến trúc tải lớn. React Dashboard nằm trong `frontend/`; chưa có MQTT hoặc database cloud.
 
 [Báo cáo kiểm thử Giai đoạn 3 và bằng chứng Wokwi](PHASE3_REPORT.md).
 
@@ -42,7 +42,7 @@ Tất cả response: `{ "success": true, "data": ..., "meta": ... }` hoặc `{ "
 | POST `/api/v1/telemetry` | DEVICE_API_TOKEN | Lưu snapshot, retry idempotent |
 | GET `/api/v1/state?deviceId=esp32-01` | ADMIN_API_TOKEN | Snapshot nhận gần nhất hoặc null |
 | GET `/api/v1/history?deviceId=esp32-01&page=1&limit=20` | ADMIN_API_TOKEN | Lịch sử giảm dần theo id, limit1–100 |
-| POST `/api/v1/commands` | ADMIN_API_TOKEN | Tạo AUTO/MANUAL_ON/MANUAL_OFF |
+| POST `/api/v1/commands` | ADMIN_API_TOKEN | Tạo AUTO/MANUAL_ON/MANUAL_OFF; DEMO_SET/DEMO_STOP có kiểm tra quyền demo |
 | GET `/api/v1/commands?deviceId=esp32-01` | ADMIN_API_TOKEN | 100 lệnh gần nhất và ACK để chẩn đoán |
 | GET `/api/v1/device/commands?deviceId=esp32-01&bootId=...` | DEVICE_API_TOKEN | Claim/poll lệnh còn hiệu lực |
 | POST `/api/v1/device/commands/:id/ack` | DEVICE_API_TOKEN | Xác nhận thực thi hoặc từ chối |
@@ -110,10 +110,32 @@ node --env-file=.env scripts/smoke.js commands
 
 ## SQLite
 
-File mặc định `backend/data/irrigation.sqlite`, WAL, busy timeout2s, schema version1. Không commit dữ liệu/token. Không tự động xóa lịch sử; cần quản lý dung lượng nếu để chạy lâu.
+File mặc định `backend/data/irrigation.sqlite`, WAL, busy timeout2s, schema version2. Migration v1→v2 tự chạy khi mở DB, giữ lịch sử, ID, ACK, session và AUTOINCREMENT; không reset SQLite. Không commit dữ liệu/token. Không tự động xóa lịch sử; cần quản lý dung lượng nếu để chạy lâu.
 
 - `telemetry`: id, device_id, boot_id, sequence, received_at, device_timestamp, soil_moisture_percent, temperature_c, rain_probability_percent, precipitation_mm, weather_source, weather_status, pump_state, decision, reason, mode, uptime_ms, weather_updated_at. Index `(device_id,id DESC)`, unique identity mỗi snapshot.
 - `commands`: id, device_id, type, created_at, expires_at, status, delivered_boot_id, delivered_at, ack_at, ack_reason. Status PENDING/DELIVERED/EXECUTED/REJECTED/EXPIRED/SUPERSEDED; index `(device_id,status,id DESC)`.
+
+### Bổ sung demo Web, ngày 19/11/2026
+
+Chỉ cho Wokwi: đặt `REMOTE_DEMO_ENABLED=true` trong `.env`, restart Backend; firmware cũng phải hỗ trợ và báo `demoSupported=true`. Giá trị mặc định trong `.env.example` là false. Không đổi token, CORS, session/CSRF hoặc mở cổng công khai. Máy demo local hiện tại đã được bật quyền này.
+
+Dashboard dùng POST `/api/v1/dashboard/commands` có session, Origin, CSRF và Idempotency-Key hiện có; không cần API mới hoặc API token trong trình duyệt. Hai kiểu lệnh bổ sung:
+
+```json
+{"deviceId":"esp32-01","type":"DEMO_SET","soilMoisturePercent":22,"rainProbabilityPercent":20,"ttlSeconds":60}
+```
+
+```json
+{"deviceId":"esp32-01","type":"DEMO_STOP","ttlSeconds":15}
+```
+
+Giá trị đất/mưa phải hữu hạn, trong 0–100; TTL 1–60 giây. DEMO_SET mặc định 60 giây, DEMO_STOP mặc định 15 giây. Backend từ chối bắt đầu demo khi chưa bật quyền, telemetry quá cũ hoặc firmware chưa hỗ trợ. AUTO/ON không thay thế phiên demo đang hiệu lực; MANUAL_OFF ưu tiên, DEMO_STOP không supersede OFF đang chờ.
+
+Lệnh dùng poll, ID chống lặp, hạn Server, ACK và ràng buộc boot hiện có. Mỗi lần áp dụng tạo ID mới và lease mới; không reset timer bơm. Demo không sống qua reboot, mất Backend hoặc hết hạn. Không tự retry lệnh điều khiển khi kết quả POST chưa rõ.
+
+Telemetry/schema v2 bổ sung `rawSoilMoisturePercent`, `soilSource`, `demoSupported`, `demoActive`, `demoCommandId`, `demoRemainingMs`, `demoExpiresAt`. Giá trị hiệu lực vẫn ở các trường đất/mưa cũ; khi demo hoạt động soilSource và weatherSource đều SIMULATED. `demoExpiresAt` do Backend lấy từ lệnh đã giao đúng boot, không tin hạn tự khai của thiết bị. Payload firmware cũ vẫn được nhận với mặc định demo tắt. SQLite thêm các cột tương ứng dạng snake_case và `commands.demo_soil_percent`, `commands.demo_rain_percent`.
+
+Đã sao lưu SQLite trước khi migration ở máy local; không xóa bản ghi cũ. Test migration/API riêng dùng DB tạm hoặc trong bộ nhớ, không chèn fixture vào DB thật. [Hướng dẫn thao tác Web](../frontend/README.md#demo-đầu-vào-từ-web--chỉ-dùng-với-wokwi), [bằng chứng kiểm thử](../reports/web-demo/REPORT.md).
 
 ## Chẩn đoán Gateway (không đổi kiến trúc trước khi kiểm tra)
 
