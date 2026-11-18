@@ -1,0 +1,6 @@
+node_modules/
+.env
+.dashboard-login
+data/
+test-results/
+*.log

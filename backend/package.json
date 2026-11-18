@@ -1,0 +1,15 @@
+{
+  "name": "smart-irrigation-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.16.0 <25" },
+  "scripts": {
+    "start": "node --env-file=.env src/server.js",
+    "dev": "node --env-file=.env --watch src/server.js",
+    "test": "node --test test/*.test.js",
+    "provision": "node scripts/provision-device.js",
+    "provision-dashboard": "node scripts/provision-dashboard.js"
+  },
+  "dependencies": { "cors": "2.8.6", "express": "5.3.0", "zod": "4.6.7" }
+}

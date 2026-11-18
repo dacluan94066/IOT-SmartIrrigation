@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "author": "SmartIrrigation",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-devkit-c-v4",
+      "id": "esp32",
+      "top": -8.8,
+      "left": -4.8,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-potentiometer",
+      "id": "soilPot",
+      "top": -17.3,
+      "left": -182.6,
+      "attrs": { "value": "512" }
+    },
+    {
+      "type": "wokwi-relay-module",
+      "id": "pumpRelay",
+      "top": -86.2,
+      "left": 182.4,
+      "attrs": { "transistor": "pnp" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "pumpLed",
+      "top": 145.2,
+      "left": 234.2,
+      "attrs": { "color": "green", "label": "PUMP" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "ledResistor",
+      "top": 109.9,
+      "left": 153.6,
+      "rotate": 90,
+      "attrs": { "value": "220" }
+    }
+  ],
+  "connections": [
+    [ "esp32:3V3", "soilPot:VCC", "red", [ "h-19.2", "v-96" ] ],
+    [ "esp32:GND.1", "soilPot:GND", "black", [ "h-28.8", "v76.8" ] ],
+    [ "esp32:34", "soilPot:SIG", "green", [ "h-48", "v-9.6" ] ],
+    [ "esp32:5V", "pumpRelay:VCC", "red", [ "h48", "v-105.6" ] ],
+    [ "esp32:GND.2", "pumpRelay:GND", "black", [ "h57.6", "v-76.8" ] ],
+    [ "esp32:26", "pumpRelay:IN", "blue", [ "h76.8", "v-38.4" ] ],
+    [ "esp32:27", "ledResistor:1", "green", [ "h57.6", "v76.8" ] ],
+    [ "ledResistor:2", "pumpLed:A", "green", [ "v19.2", "h38.4" ] ],
+    [ "pumpLed:C", "esp32:GND.3", "black", [ "v28.8", "h-134.4", "v-9.6" ] ]
+  ],
+  "dependencies": {}
+}

@@ -1,0 +1,12 @@
+test_main.cpp
+PumpController.cpp
+WeatherParser.cpp
+Generating Code...
+[NATIVE SIMULATED Test1] ms=100 soil=22.5% rain=20.0% WEATHER=VALID pump=ON reason=Dat kho; tiep tuc chu ky den 70% hoac gioi han an toan
+[NATIVE SIMULATED Test1] ms=10100 soil=22.5% rain=20.0% WEATHER=VALID pump=OFF reason=Dat gioi han chay bom 10 giay
+[NATIVE SIMULATED Test1] ms=15099 soil=22.5% rain=20.0% WEATHER=VALID pump=OFF reason=Dang cho 5 giay sau chu ky truoc
+[NATIVE SIMULATED Test1] ms=15100 soil=22.5% rain=20.0% WEATHER=VALID pump=ON reason=Dat kho; tiep tuc chu ky den 70% hoac gioi han an toan
+[NATIVE SIMULATED Test2] ms=0 soil=22.5% rain=85.0% WEATHER=VALID pump=OFF reason=TAM HOAN TUOI - DU BAO SAP MUA
+[NATIVE SIMULATED Test2] ms=100 soil=22.5% rain=20.0% WEATHER=VALID pump=ON reason=Dat kho; tiep tuc chu ky den 70% hoac gioi han an toan
+[NATIVE SIMULATED Test2] ms=200 soil=22.5% rain=85.0% WEATHER=VALID pump=OFF reason=TAM HOAN TUOI - DU BAO SAP MUA
+PASS: 110 checks (pump, parser, SNTP, request lifecycle, cancellation, I/O budgets)

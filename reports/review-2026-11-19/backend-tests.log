@@ -1,0 +1,47 @@
+
+> smart-irrigation-backend@1.0.0 test
+> node --test test/*.test.js
+
+▶ Phase3 REST API + SQLite integration (PC, not ESP32/Wokwi)
+  ✔ health succeeds without token and checks DB (93.4257ms)
+  ✔ auth required and roles separated (78.9934ms)
+  ✔ store telemetry with server receipt and nullable device timestamp (23.1573ms)
+  ✔ idempotent telemetry retry preserves original timestamp/body (12.1028ms)
+  ✔ SQLite file readable from independent reopened connection (10.5456ms)
+  ✔ latest state and bounded paginated history (24.5988ms)
+  ✔ reject invalid values, unknown fields, wrong device, contradictory pump (34.1775ms)
+  ✔ UNKNOWN nulls and SIMULATED labels retained (12.226ms)
+  ✔ CORS allowlist, reject unsolicited origins (7.4914ms)
+  ✔ malformed JSON and body size use JSON errors (11.9636ms)
+  ✔ create/claim command with finite TTL (19.7488ms)
+  ✔ unacked retry same boot uses same id, not fresh command (9.784ms)
+  ✔ poll provides server lease and never extends expiresAt (7.9257ms)
+  ✔ ACK wrong boot rejected, ACK idempotent and never redelivered (21.1191ms)
+  ✔ new boot never executes previously delivered command (22.5751ms)
+  ✔ MANUAL_OFF supersedes ON and wins over AUTO/ON until expiry (26.3348ms)
+  ✔ expired/rejected command audited and never reissued (31.6749ms)
+  ✔ command validation, nonexistent route return JSON (14.7789ms)
+✔ Phase3 REST API + SQLite integration (PC, not ESP32/Wokwi) (623.2974ms)
+✔ configuration fails closed and refuses public bind (3.4222ms)
+▶ Dashboard sessions, security, idempotency, time filters (HTTP + SQLite, not Wokwi)
+  ✔ anonymous session reveals no credentials, protected reads401 (140.4826ms)
+  ✔ same-origin production origin allowed, arbitrary origins rejected (11.103ms)
+  ✔ bad password rejected (109.9033ms)
+  ✔ login returns HttpOnly Strict cookie, no API tokens (67.3561ms)
+  ✔ session authenticated read but cannot call raw admin/device routes (17.4495ms)
+  ✔ writes require csrf and trusted origin (15.3749ms)
+  ✔ idempotent command submission has one DB row and rejects changed body (18.7804ms)
+  ✔ time filter is server-side with correct count and invalid bounds rejected (23.7471ms)
+  ✔ sessions survive app recreation using same SQLite (13.0752ms)
+  ✔ logout invalidates cookie server-side (10.3977ms)
+  ✔ expired session rejected (53.0282ms)
+  ✔ login throttled after five bad attempts (243.8888ms)
+✔ Dashboard sessions, security, idempotency, time filters (HTTP + SQLite, not Wokwi) (839.2654ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3863.9627

@@ -1,0 +1,6 @@
+{
+  "epoch": 1792606707,
+  "status": 200,
+  "url": "https://api.open-meteo.com/v1/forecast?latitude=10.8231&longitude=106.6297&hourly=precipitation_probability,precipitation&current=temperature_2m,relative_humidity_2m&forecast_hours=3&timezone=Asia%2FHo_Chi_Minh&timeformat=unixtime&temperature_unit=celsius&precipitation_unit=mm",
+  "source": "Actual HTTPS response on PC; not Wokwi and not a simulated forecast."
+}
